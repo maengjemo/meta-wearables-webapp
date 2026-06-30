@@ -1628,3 +1628,17 @@ After each republish, show the QR code and setup instructions (following Steps 5
 | `/add-ui` | Add screens, buttons, components | Adding UI before republish |
 | `/connect-api` | Add API connections | Adding data sources before republish |
 | `/qr-code` | Generate QR codes | Used automatically by this skill for device setup |
+
+## Cursor Cloud specific instructions
+
+This repo is an AI toolkit (plugins/skills + templates + examples) for building Meta Display Glasses web apps. The runnable artifacts are plain vanilla HTML/CSS/JS — there is **no build step and no package manifest** (no `package.json`, lockfile, or `requirements.txt`), so nothing needs installing to run a web app locally. The startup update script installs the `vercel` CLI, which is only needed for the on-device deploy skills (`/test-on-device`, `/publish-to-vercel`); using it requires an interactive `vercel login` (a user action) and a Vercel account.
+
+npm global-install gotcha: on this VM `node` (`/exec-daemon/node`) and `npm` (nvm) mismatch, so the default npm global prefix resolves to root-owned `/` and a plain `npm install -g <pkg>` fails with EACCES. Do **not** "fix" this by setting an npm `prefix` in `~/.npmrc` — nvm is sourced in login shells and prints a `prefix ... incompatible with nvm` warning on every shell. The reliable approach (used by the startup update script) is a passwordless-sudo global install that lands binaries in `/usr/bin` (always on `PATH`): `sudo env "PATH=$PATH" "$(command -v npm)" install -g <pkg>`. `vercel` is installed this way to `/usr/bin/vercel`. To use the deploy skills you still need to authenticate once with `vercel login` (the CLI is not logged in by default on a fresh VM).
+
+Running locally for desktop testing: serve any app/example directory with a static server and open it in Chrome, e.g. `python3 -m http.server 8080` from the dir (or `npx serve .`). The toolkit input model is keyboard-only: Arrow keys move the cyan focus ring between `.focusable` elements (D-pad), Enter activates, Escape goes back.
+
+- `examples/snake/` is a complete runnable example app (serve it and play with arrow keys + Enter).
+- The QR generator (`plugins/meta-wearables-webapp/skills/qr-code/scripts/qr_generator.py`) and favicon generator are pure `python3` stdlib — no deps.
+- There is no automated test suite; validate JS with `node --check <file>`, Python with `python3 -m py_compile <file>`, JSON manifests by loading them, and `bash -n install-skills.sh`.
+
+Testing gotcha (important for automated/computer-use testing): real-time canvas games such as `examples/snake` tick fast (Snake = one move per 120 ms) and start moving immediately, so high-latency automated clicks cannot steer them — the snake just runs into a wall and "GAME OVER" appears with 0 points (this is NOT a bug). Use discrete key presses to exercise the latency-tolerant core features (D-pad focus navigation, Enter activation, screen routing, `localStorage` persistence/leaderboard). For deterministic gameplay/state, drive the running page from the DevTools console by dispatching `new KeyboardEvent('keydown', {key:'ArrowDown'})` on `document`, or pre-seed state via `localStorage` (e.g. the Snake app reads the `snake_high_scores` key).
